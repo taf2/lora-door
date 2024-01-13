@@ -11,6 +11,7 @@
 
 #include <SPI.h>
 #include <RH_RF95.h>
+#include "Ethernet.h"
 
 // First 3 here are boards w/radio BUILT-IN. Boards using FeatherWing follow.
 #if defined (__AVR_ATmega32U4__)  // Feather 32u4 w/Radio
@@ -90,8 +91,94 @@
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
 // status indicator LED
-//
-#define LED A3
+#define LED 13
+
+/* ethernet interface */
+// Enter a MAC address for your controller below.
+// Newer Ethernet shields have a MAC address printed on a sticker on the shield
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+
+// Initialize the Ethernet client library
+// with the IP address and port of the server
+// that you want to connect to (port 80 is default for HTTP):
+EthernetClient client;
+
+String httpsGet(const char *server, const char *path, int port=443) {
+  Serial.print("connecting to ");
+  Serial.print(server);
+  Serial.println("...");
+
+  // close any connection before send a new request.
+  // This will free the socket on the WiFi shield
+  client.stop();
+
+  // if there's a successful connection:
+  if (client.connect(server, port)) {
+    Serial.print("connected to ");
+    Serial.println(client.remoteIP());
+    // send GET request to the path
+    client.print("GET ");
+    client.print(path);
+    client.println(" HTTP/1.1");
+    // set the Host header to the server
+    client.print("Host: ");
+    client.println(server);
+    client.println("Connection: close");
+    client.println();
+  } else {
+    // if you couldn't make a connection:
+    Serial.println("connection failed");
+  }
+  // get the response into the String and return
+  String response = "";
+  while (client.connected()) {
+    if (client.available()) {
+      char c = client.read();
+      response += c;
+    }
+  }
+  return response;
+}
+
+void setupEthernet() {
+  Ethernet.init(10); // M0 lora radio featherwing
+
+  // start the Ethernet connection:
+  Serial.println("Initialize Ethernet with DHCP:");
+
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("Failed to configure Ethernet using DHCP");
+    // Check for Ethernet hardware present
+    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+      while (true) {
+        Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
+        delay(1000); // do nothing, no point running without Ethernet hardware
+      }
+    }
+    if (Ethernet.linkStatus() == LinkOFF) {
+      while (true) {
+        Serial.println("Ethernet cable is not connected.");
+        delay(1000); // do nothing, no point running without Ethernet hardware
+      }
+    }
+    while (true) {
+      Serial.println("DHCP not successful");
+      delay(1000); // do nothing, no point running without Ethernet hardware
+    }
+  } else {
+    Serial.print("  DHCP assigned IP ");
+    Serial.println(Ethernet.localIP());
+  }
+  // give the Ethernet shield a second to initialize:
+  delay(1000);
+  // test the ethernet connection
+  char server[] = "wifitest.adafruit.com"; // name address for adafruit (using DNS)
+
+  String response = httpsGet(server, "/testwifi/index.html");
+
+  Serial.println("response:");
+  Serial.println(response);
+}
 
 void setup() {
   pinMode(LED, OUTPUT);
@@ -134,6 +221,10 @@ void setup() {
   // If you are using RFM95/96/97/98 modules which uses the PA_BOOST transmitter pin, then
   // you can set transmitter powers from 5 to 23 dBm:
   rf95.setTxPower(23, false);
+
+
+  setupEthernet();
+
   digitalWrite(LED, HIGH);
   delay(1000);
   digitalWrite(LED, LOW);
@@ -152,7 +243,7 @@ void loop() {
   uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
   uint8_t len = sizeof(buf);
 
-  Serial.println("Waiting for anything...");
+  //Serial.println("Waiting for anything...");
   if (rf95.waitAvailableTimeout(1000)) {
     // Should be a reply message for us now
     if (rf95.recv(buf, &len)) {
@@ -169,7 +260,7 @@ void loop() {
       Serial.println("Receive failed");
     }
   } else {
-    Serial.println("No reply, is there a listener around?");
+    //Serial.println("No reply, is there a listener around?");
   }
 
 }
