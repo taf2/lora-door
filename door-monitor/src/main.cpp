@@ -238,7 +238,8 @@ void setup() {
   rf95.setTxPower(23, false);
 
 
-  setupEthernet();
+  // when we are ready we can connect to our house server and send a message or track open/closed messages for the door
+  //setupEthernet();
 
   digitalWrite(LED_OPEN, HIGH);
   digitalWrite(LED, HIGH);
