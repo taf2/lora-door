@@ -12,6 +12,8 @@
 #include <SPI.h>
 #include <RH_RF95.h>
 #include "Ethernet.h"
+#include <SSLClient.h>
+#include "www_adafruit_com_trust.h"
 
 // First 3 here are boards w/radio BUILT-IN. Boards using FeatherWing follow.
 #if defined (__AVR_ATmega32U4__)  // Feather 32u4 w/Radio
@@ -92,6 +94,8 @@ RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
 // status indicator LED
 #define LED 13
+#define LED_OPEN 14
+#define LED_CLOSED 16
 
 /* ethernet interface */
 // Enter a MAC address for your controller below.
@@ -101,7 +105,10 @@ byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 // Initialize the Ethernet client library
 // with the IP address and port of the server
 // that you want to connect to (port 80 is default for HTTP):
-EthernetClient client;
+const int rand_pin = A5;
+EthernetClient base_client;
+SSLClient client(base_client, WWW_ADAFRUIT_COM_TAs, (size_t)WWW_ADAFRUIT_COM_TAs_NUM, rand_pin);
+#define MAX_RESPONSE_SIZE 1024
 
 String httpsGet(const char *server, const char *path, int port=443) {
   Serial.print("connecting to ");
@@ -115,7 +122,7 @@ String httpsGet(const char *server, const char *path, int port=443) {
   // if there's a successful connection:
   if (client.connect(server, port)) {
     Serial.print("connected to ");
-    Serial.println(client.remoteIP());
+    Serial.println(base_client.remoteIP());
     // send GET request to the path
     client.print("GET ");
     client.print(path);
@@ -125,18 +132,22 @@ String httpsGet(const char *server, const char *path, int port=443) {
     client.println(server);
     client.println("Connection: close");
     client.println();
+    Serial.println("request sent");
   } else {
     // if you couldn't make a connection:
     Serial.println("connection failed");
   }
   // get the response into the String and return
   String response = "";
-  while (client.connected()) {
+  while (client.connected() && response.length() < MAX_RESPONSE_SIZE) {
     if (client.available()) {
       char c = client.read();
       response += c;
+      Serial.print("reading bytes: ");
+      Serial.println(response.length());
     }
   }
+  client.stop();
   return response;
 }
 
@@ -172,9 +183,9 @@ void setupEthernet() {
   // give the Ethernet shield a second to initialize:
   delay(1000);
   // test the ethernet connection
-  char server[] = "wifitest.adafruit.com"; // name address for adafruit (using DNS)
+  char server[] = "www.adafruit.com"; // name address for adafruit (using DNS)
 
-  String response = httpsGet(server, "/testwifi/index.html");
+  String response = httpsGet(server, "/");
 
   Serial.println("response:");
   Serial.println(response);
@@ -182,6 +193,8 @@ void setupEthernet() {
 
 void setup() {
   pinMode(LED, OUTPUT);
+  pinMode(LED_OPEN, OUTPUT);
+  pinMode(LED_CLOSED, OUTPUT);
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
 
@@ -190,6 +203,8 @@ void setup() {
   delay(1000);
 
   digitalWrite(LED, LOW);
+  digitalWrite(LED_OPEN, LOW);
+  digitalWrite(LED_CLOSED, HIGH);
 
   Serial.println("Feather LoRa TX Test!");
 
@@ -225,8 +240,10 @@ void setup() {
 
   setupEthernet();
 
+  digitalWrite(LED_OPEN, HIGH);
   digitalWrite(LED, HIGH);
-  delay(1000);
+  delay(2000);
+  digitalWrite(LED_OPEN, LOW);
   digitalWrite(LED, LOW);
   delay(1000);
 }
@@ -253,14 +270,18 @@ void loop() {
       Serial.println(rf95.lastRssi(), DEC);
       if (memcmp(opened_message, buf, 3) == 0) {
         digitalWrite(LED, HIGH);
+        digitalWrite(LED_OPEN, HIGH);
+        digitalWrite(LED_CLOSED, LOW);
       } else if (memcmp(closed_message, buf, 3) == 0) {
         digitalWrite(LED, LOW);
+        digitalWrite(LED_OPEN, LOW);
+        digitalWrite(LED_CLOSED, HIGH);
       }
     } else {
       Serial.println("Receive failed");
     }
-  } else {
+  }// else {
     //Serial.println("No reply, is there a listener around?");
-  }
+  //}
 
 }
