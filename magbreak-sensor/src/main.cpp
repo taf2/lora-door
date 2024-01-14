@@ -88,9 +88,7 @@ RH_RF95 rf95(RFM95_CS, RFM95_INT);
 #define LED 13
 
 // magnetic contact sensor
-// A1 and A2
-#define MAGPIN A1
-#define MAGPOUT A2
+#define MAGPIN 15
 
 bool isOpen = false;
 
@@ -129,7 +127,6 @@ void setup() {
   pinMode(LED, OUTPUT);
 
   pinMode(MAGPIN, INPUT_PULLDOWN);
-  pinMode(MAGPOUT, OUTPUT);
 
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
@@ -139,7 +136,6 @@ void setup() {
   delay(1000);
 
   digitalWrite(LED, LOW);
-  digitalWrite(MAGPOUT, HIGH); // in this way we can detect if the sensor is disconnected because MAGPIN will be LOW otherwise HIGH when connected
 
   // manual reset
   digitalWrite(RFM95_RST, LOW);
@@ -196,8 +192,13 @@ void keepAlive() {
 
 }
 
+int tick= 0;
+
 void loop() {
   int magpin = digitalRead(MAGPIN);
+
+  Serial.printf("magpin[%d]: ", tick++);
+  Serial.print(magpin);
 
   if (magpin == HIGH) {
     if (isOpen) { lastKeepAlive = millis(); sendClosed(); Serial.println("Closed"); }
@@ -209,6 +210,5 @@ void loop() {
 
   keepAlive();
 
-  delay(100); // Wait 1 second between transmits, could also 'sleep' here!
-//  Serial.println("Transmitting..."); // Send a message to rf95_server
+  delay(100); // Wait 100 ms between transmits, could also 'sleep' here!
 }
