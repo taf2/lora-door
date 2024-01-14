@@ -197,9 +197,6 @@ int tick= 0;
 void loop() {
   int magpin = digitalRead(MAGPIN);
 
-  Serial.printf("magpin[%d]: ", tick++);
-  Serial.print(magpin);
-
   if (magpin == HIGH) {
     if (isOpen) { lastKeepAlive = millis(); sendClosed(); Serial.println("Closed"); }
     isOpen = false;
