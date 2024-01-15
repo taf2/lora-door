@@ -1,6 +1,6 @@
 /* tester make sure the board is there and working well enough to blink */
 #include <Arduino.h>
-#define LED A3
+#define LED 46
 
 void setup() {
   pinMode(LED, OUTPUT);
